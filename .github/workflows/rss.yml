@@ -1,0 +1,38 @@
+name: Update RSS Feed
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"   # 每5分钟更新
+  workflow_dispatch:
+
+jobs:
+  update-feed:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Fetch WSJ sitemap
+        run: |
+          curl -o wsj.xml https://www.wsj.com/live_news_sitemap.xml
+
+      - name: Convert to RSS
+        run: |
+          echo '<?xml version="1.0" encoding="UTF-8" ?>' > feed.xml
+          echo '<rss version="2.0"><channel>' >> feed.xml
+          echo '<title>WSJ Live Feed</title>' >> feed.xml
+
+          grep "<loc>" wsj.xml | sed 's/<\/\?loc>//g' | while read url; do
+            echo "<item><link>$url</link></item>" >> feed.xml
+          done
+
+          echo '</channel></rss>' >> feed.xml
+
+      - name: Commit & push
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add feed.xml
+          git commit -m "Update feed" || echo "No changes"
+          git push
